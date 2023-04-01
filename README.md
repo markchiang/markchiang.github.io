@@ -16,4 +16,4 @@ description: Functional Medicine
 
 水喝多了也會中毒!
 
-by Mark Chiang
+by Yih-Shien Chiang, Ph.D.
