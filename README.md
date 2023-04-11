@@ -17,3 +17,12 @@ description: Functional Medicine
 水喝多了也會中毒!
 
 by Yih-Shien Chiang, Ph.D.
+
+
+
+### 注意事項
+
+本站僅提供古今中外之 生物、醫學及食品 相關知識分享
+
+有病請看醫生 勿以本站學習到的知識自行處理
+
