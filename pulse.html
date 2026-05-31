@@ -321,7 +321,7 @@
       <div class="card">
         <h2 style="margin:0 0 12px;">即時 Pulse Wave</h2>
         <canvas id="waveCanvas" width="900" height="300"></canvas>
-        <p style="margin-top:10px; font-size:13px;">X 軸是最近 30 秒；Y 軸是標準化後的相對波形。通常需要 10–20 秒才會穩定。</p>
+        <p style="margin-top:10px; font-size:13px;">X 軸是最近 10 秒；Y 軸是標準化後的相對波形。通常需要 10–20 秒才會穩定。</p>
       </div>
     </section>
 
@@ -358,7 +358,7 @@
   </div>
 
   <script>
-    const SAMPLE_WINDOW_SEC = 30;
+    const SAMPLE_WINDOW_SEC = 10;
     const MAX_POINTS = 900;
     const MIN_PEAK_DISTANCE_SEC = 0.35;
     const MIN_BPM = 40;
