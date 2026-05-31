@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>手指鏡頭心跳波形偵測</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --panel: #0f172a;
+      --panel2: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #fb7185;
+      --cyan: #67e8f9;
+      --danger: #fecaca;
+      --danger-bg: rgba(127, 29, 29, 0.45);
+      --border: #1e293b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #172554 0, var(--bg) 42%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .header {
+      display: grid;
+      gap: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 7vw, 52px);
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+
+    p { color: var(--muted); line-height: 1.65; margin: 0; }
+
+    .tag {
+      color: var(--accent);
+      letter-spacing: 0.16em;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 18px;
+      color: white;
+      background: linear-gradient(135deg, #e11d48, #be123c);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(225, 29, 72, 0.25);
+    }
+
+    button.secondary {
+      background: #334155;
+      box-shadow: none;
+    }
+
+    button.outline {
+      background: transparent;
+      border: 1px solid #334155;
+      box-shadow: none;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    @media (min-width: 860px) {
+      .main-grid { grid-template-columns: 320px 1fr; }
+      .metrics { grid-template-columns: repeat(5, 1fr); }
+      .status-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 859px) {
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .status-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    }
+
+    .video-box {
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      background: black;
+      aspect-ratio: 4 / 3;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.86;
+    }
+
+    .roi {
+      position: absolute;
+      inset: 14%;
+      border: 2px solid rgba(255,255,255,0.9);
+      border-radius: 18px;
+      pointer-events: none;
+    }
+
+    .hint {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      background: rgba(0,0,0,0.62);
+      color: #e2e8f0;
+      padding: 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .badges {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge.hot { background: rgba(159, 18, 57, 0.55); }
+
+    .mini {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .mini .box, .status-box {
+      border-radius: 18px;
+      background: rgba(30, 41, 59, 0.72);
+      padding: 12px;
+    }
+
+    .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .big {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    #waveCanvas {
+      width: 100%;
+      height: 300px;
+      background: rgba(2, 6, 23, 0.62);
+      border-radius: 20px;
+      border: 1px solid #1e293b;
+      display: block;
+    }
+
+    .metric {
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 14px;
+    }
+
+    .metric-title {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    .metric-value {
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: -0.05em;
+    }
+
+    .unit {
+      color: var(--muted);
+      font-size: 13px;
+      margin-left: 4px;
+    }
+
+    .error {
+      background: var(--danger-bg);
+      border-color: rgba(248, 113, 113, 0.45);
+      color: var(--danger);
+    }
+
+    .error h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      color: #fee2e2;
+    }
+
+    code {
+      display: block;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.35);
+      color: #fecaca;
+      white-space: pre-wrap;
+      font-size: 12px;
+    }
+
+    .hide { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="header">
+      <div class="tag">Finger Camera PPG</div>
+      <h1>手指覆蓋鏡頭心跳波形偵測</h1>
+      <p>不開手電筒。把指腹完整貼住手機後鏡頭，程式會分析紅/綠通道的微小變化，顯示 pulse wave、平均 BPM、IBI variation、SDNN、RMSSD。這是實驗性量測，不作醫療用途。</p>
+      <div class="actions">
+        <button id="startBtn">開始偵測</button>
+        <button id="stopBtn" class="secondary">停止</button>
+        <button id="permissionBtn" class="outline">檢查權限</button>
+      </div>
+    </header>
+
+    <section class="grid status-grid">
+      <div class="status-box">
+        <div class="label">Secure context</div>
+        <div id="secureStatus">--</div>
+      </div>
+      <div class="status-box">
+        <div class="label">Camera API</div>
+        <div id="apiStatus">--</div>
+      </div>
+      <div class="status-box">
+        <div class="label">Permission</div>
+        <div id="permissionStatus">unknown</div>
+      </div>
+    </section>
+
+    <section id="errorBox" class="card error hide">
+      <h2 id="errorTitle">無法開啟鏡頭</h2>
+      <p id="errorDetail"></p>
+      <code id="errorRaw"></code>
+    </section>
+
+    <section class="grid main-grid">
+      <div class="card">
+        <div class="badges">
+          <span id="runStatus" class="badge">尚未開始</span>
+          <span id="confidenceLabel" class="badge hot">訊號不足</span>
+        </div>
+
+        <div class="video-box">
+          <video id="video" muted playsinline></video>
+          <div class="roi"></div>
+          <div class="hint">指腹完整蓋住鏡頭；不要按太大力，避免阻斷微血流。</div>
+        </div>
+
+        <canvas id="sampleCanvas" width="320" height="240" class="hide"></canvas>
+
+        <div class="mini">
+          <div class="box">
+            <div class="label">Camera FPS</div>
+            <div id="fps" class="big">0</div>
+          </div>
+          <div class="box">
+            <div class="label">Samples</div>
+            <div id="sampleCount" class="big">0</div>
+          </div>
+        </div>
+
+        <div class="status-box" style="margin-top: 10px;">
+          <div class="label">Finger signal</div>
+          <div id="fingerSignal">等待中</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin:0 0 12px;">即時 Pulse Wave</h2>
+        <canvas id="waveCanvas" width="900" height="300"></canvas>
+        <p style="margin-top:10px; font-size:13px;">X 軸是最近 30 秒；Y 軸是標準化後的相對波形。通常需要 10–20 秒才會穩定。</p>
+      </div>
+    </section>
+
+    <section class="grid metrics">
+      <div class="metric">
+        <div class="metric-title">Average BPM</div>
+        <span id="bpm" class="metric-value">--</span><span class="unit">/min</span>
+      </div>
+      <div class="metric">
+        <div class="metric-title">IBI SDNN</div>
+        <span id="sdnn" class="metric-value">--</span><span class="unit">ms</span>
+      </div>
+      <div class="metric">
+        <div class="metric-title">RMSSD</div>
+        <span id="rmssd" class="metric-value">--</span><span class="unit">ms</span>
+      </div>
+      <div class="metric">
+        <div class="metric-title">CV Variation</div>
+        <span id="cv" class="metric-value">--</span><span class="unit">%</span>
+      </div>
+      <div class="metric">
+        <div class="metric-title">Confidence</div>
+        <span id="confidence" class="metric-value">0</span><span class="unit">%</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 style="margin-top:0;">Android 手機使用方式</h2>
+      <p>1. 建議用 Chrome 開啟。若直接開本機 html 被擋，請把這個檔案上傳到 GitHub Pages、Netlify Drop、CodePen 或任何 HTTPS 靜態網頁空間。</p>
+      <p>2. 第一次按「開始偵測」時，請允許 Camera 權限。</p>
+      <p>3. 若出現 Permission denied：Chrome 網址列左側圖示 → Site settings → Camera → Allow；或 Android 設定 → Apps → Chrome → Permissions → Camera → Allow。</p>
+      <p>4. 不開手電筒，所以環境太暗或手指蓋太緊時訊號會弱；這是設計限制。</p>
+    </section>
+  </div>
+
+  <script>
+    const SAMPLE_WINDOW_SEC = 30;
+    const MAX_POINTS = 900;
+    const MIN_PEAK_DISTANCE_SEC = 0.35;
+    const MIN_BPM = 40;
+    const MAX_BPM = 180;
+
+    const video = document.getElementById('video');
+    const sampleCanvas = document.getElementById('sampleCanvas');
+    const waveCanvas = document.getElementById('waveCanvas');
+    const waveCtx = waveCanvas.getContext('2d');
+
+    const els = {
+      startBtn: document.getElementById('startBtn'),
+      stopBtn: document.getElementById('stopBtn'),
+      permissionBtn: document.getElementById('permissionBtn'),
+      secureStatus: document.getElementById('secureStatus'),
+      apiStatus: document.getElementById('apiStatus'),
+      permissionStatus: document.getElementById('permissionStatus'),
+      errorBox: document.getElementById('errorBox'),
+      errorTitle: document.getElementById('errorTitle'),
+      errorDetail: document.getElementById('errorDetail'),
+      errorRaw: document.getElementById('errorRaw'),
+      runStatus: document.getElementById('runStatus'),
+      confidenceLabel: document.getElementById('confidenceLabel'),
+      fps: document.getElementById('fps'),
+      sampleCount: document.getElementById('sampleCount'),
+      fingerSignal: document.getElementById('fingerSignal'),
+      bpm: document.getElementById('bpm'),
+      sdnn: document.getElementById('sdnn'),
+      rmssd: document.getElementById('rmssd'),
+      cv: document.getElementById('cv'),
+      confidence: document.getElementById('confidence'),
+    };
+
+    let stream = null;
+    let rafId = null;
+    let running = false;
+    let samples = [];
+    let lastSample = 0;
+    let frameCounter = { last: performance.now(), count: 0 };
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    function mean(arr) { return arr.length ? arr.reduce((a,b) => a + b, 0) / arr.length : 0; }
+    function std(arr) {
+      if (arr.length < 2) return 0;
+      const m = mean(arr);
+      return Math.sqrt(arr.reduce((s, x) => s + Math.pow(x - m, 2), 0) / (arr.length - 1));
+    }
+    function fmt(v, digits = 0) {
+      return v === null || v === undefined || Number.isNaN(v) ? '--' : Number(v).toFixed(digits);
+    }
+
+    function detrendAndNormalize(input) {
+      if (input.length < 5) return input.map(s => ({ ...s, y: 0 }));
+      const values = input.map(s => s.raw);
+      const m = mean(values);
+      const sd = std(values) || 1;
+      return input.map(s => ({ t: s.t, raw: s.raw, y: (s.raw - m) / sd }));
+    }
+
+    function movingAverage(values, radius = 2) {
+      return values.map((_, i) => {
+        const lo = Math.max(0, i - radius);
+        const hi = Math.min(values.length, i + radius + 1);
+        return mean(values.slice(lo, hi));
+      });
+    }
+
+    function estimateMetrics(input) {
+      if (input.length < 120) {
+        return { bpm: null, confidence: 0, peaks: [], ibiMs: [], sdnn: null, rmssd: null, cv: null };
+      }
+
+      const normalized = detrendAndNormalize(input);
+      const ys = movingAverage(normalized.map(s => s.y), 3);
+      const timestamps = normalized.map(s => s.t);
+      const threshold = mean(ys) + 0.35 * (std(ys) || 1);
+      const minPeakGap = MIN_PEAK_DISTANCE_SEC * 1000;
+      const peaks = [];
+
+      for (let i = 1; i < ys.length - 1; i++) {
+        const isLocalPeak = ys[i] > ys[i - 1] && ys[i] > ys[i + 1];
+        const isStrongEnough = ys[i] > threshold;
+        if (!isLocalPeak || !isStrongEnough) continue;
+
+        const t = timestamps[i];
+        const last = peaks[peaks.length - 1];
+        if (!last || t - last.t >= minPeakGap) {
+          peaks.push({ t, y: ys[i] });
+        } else if (ys[i] > last.y) {
+          peaks[peaks.length - 1] = { t, y: ys[i] };
+        }
+      }
+
+      const ibiMs = [];
+      for (let i = 1; i < peaks.length; i++) {
+        const gap = peaks[i].t - peaks[i - 1].t;
+        const instantBpm = 60000 / gap;
+        if (instantBpm >= MIN_BPM && instantBpm <= MAX_BPM) ibiMs.push(gap);
+      }
+
+      if (ibiMs.length < 3) {
+        return { bpm: null, confidence: 0.15, peaks, ibiMs, sdnn: null, rmssd: null, cv: null };
+      }
+
+      const avgIbi = mean(ibiMs);
+      const bpm = 60000 / avgIbi;
+      const sdnn = std(ibiMs);
+      const diffs = [];
+      for (let i = 1; i < ibiMs.length; i++) diffs.push(ibiMs[i] - ibiMs[i - 1]);
+      const rmssd = diffs.length ? Math.sqrt(mean(diffs.map(d => d * d))) : 0;
+      const cv = avgIbi ? sdnn / avgIbi : null;
+
+      const sampleDuration = (input[input.length - 1].t - input[0].t) / 1000;
+      const enoughDuration = clamp(sampleDuration / 20, 0, 1);
+      const enoughBeats = clamp(ibiMs.length / 12, 0, 1);
+      const regularity = clamp(1 - (cv || 0), 0, 1);
+      const confidence = clamp(0.15 + 0.35 * enoughDuration + 0.3 * enoughBeats + 0.2 * regularity, 0, 1);
+
+      return { bpm, confidence, peaks, ibiMs, sdnn, rmssd, cv };
+    }
+
+    async function refreshPermissionState() {
+      els.secureStatus.textContent = window.isSecureContext ? 'OK：HTTPS / localhost' : '可能被擋：需要 HTTPS 或 localhost';
+      els.apiStatus.textContent = navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? '支援 getUserMedia' : '不支援或被封鎖';
+
+      let permission = 'unknown';
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const result = await navigator.permissions.query({ name: 'camera' });
+          permission = result.state;
+        }
+      } catch (e) {
+        permission = 'unknown';
+      }
+      els.permissionStatus.textContent = permission;
+    }
+
+    function showError(error) {
+      const name = error && error.name ? error.name : 'UnknownError';
+      const message = error && error.message ? error.message : '';
+      let title = '無法開啟鏡頭';
+      let detail = '請確認瀏覽器權限、HTTPS/localhost、安全性設定與裝置相機狀態。';
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        title = '此瀏覽器不支援 camera API';
+        detail = '請改用 Android Chrome，並確認頁面是在 HTTPS 或 localhost 下開啟。';
+      } else if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        title = 'Permission denied：相機權限被拒絕';
+        detail = '請在 Chrome 網址列左側圖示允許 Camera，或到 Android 設定 → Apps → Chrome → Permissions → Camera → Allow。若是直接打開本機 html 被擋，請改放到 HTTPS 網頁測試。';
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        title = '找不到可用鏡頭';
+        detail = '裝置沒有偵測到 camera，或相機正在被其他 App 使用。';
+      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+        title = '相機被其他程式佔用';
+        detail = '請關閉其他正在使用相機的 App 或瀏覽器分頁，再重新整理頁面。';
+      } else if (!window.isSecureContext) {
+        title = '非安全環境，可能無法開啟相機';
+        detail = 'Camera API 通常只允許 HTTPS 或 localhost。Android 上直接開 file:// 或一般 http:// 很可能會被擋。';
+      }
+
+      els.errorTitle.textContent = title;
+      els.errorDetail.textContent = detail;
+      els.errorRaw.textContent = name + ': ' + message;
+      els.errorBox.classList.remove('hide');
+    }
+
+    async function requestCameraStream() {
+      const attempts = [
+        { video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 60 } }, audio: false },
+        { video: { facingMode: 'environment', width: { ideal: 320 }, height: { ideal: 240 } }, audio: false },
+        { video: true, audio: false },
+      ];
+
+      let lastError = null;
+      for (const constraints of attempts) {
+        try {
+          const s = await navigator.mediaDevices.getUserMedia(constraints);
+          for (const track of s.getVideoTracks()) {
+            const caps = track.getCapabilities ? track.getCapabilities() : null;
+            if (caps && caps.torch) {
+              try { await track.applyConstraints({ advanced: [{ torch: false }] }); } catch (_) {}
+            }
+          }
+          return s;
+        } catch (e) {
+          lastError = e;
+          if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') throw e;
+        }
+      }
+      throw lastError;
+    }
+
+    async function start() {
+      els.errorBox.classList.add('hide');
+      samples = [];
+      updateMetrics();
+      els.fingerSignal.textContent = '等待中';
+      await refreshPermissionState();
+
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          const e = new Error('getUserMedia is not available');
+          e.name = 'NotSupportedError';
+          throw e;
+        }
+
+        stream = await requestCameraStream();
+        video.srcObject = stream;
+        await video.play();
+        running = true;
+        els.runStatus.textContent = '偵測中';
+        await refreshPermissionState();
+        rafId = requestAnimationFrame(loop);
+      } catch (e) {
+        running = false;
+        els.runStatus.textContent = '尚未開始';
+        showError(e);
+        await refreshPermissionState();
+      }
+    }
+
+    function stop() {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = null;
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+      video.srcObject = null;
+      running = false;
+      els.runStatus.textContent = '尚未開始';
+    }
+
+    function loop() {
+      if (!running || !video || video.readyState < 2) {
+        rafId = requestAnimationFrame(loop);
+        return;
+      }
+
+      const now = performance.now();
+      frameCounter.count += 1;
+      if (now - frameCounter.last > 1000) {
+        els.fps.textContent = String(frameCounter.count);
+        frameCounter.count = 0;
+        frameCounter.last = now;
+      }
+
+      if (now - lastSample >= 33) {
+        lastSample = now;
+        sampleSignal(now);
+        drawWave();
+        updateMetrics();
+      }
+
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function sampleSignal(now) {
+      const ctx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+      const w = sampleCanvas.width;
+      const h = sampleCanvas.height;
+      ctx.drawImage(video, 0, 0, w, h);
+
+      const roiW = Math.floor(w * 0.72);
+      const roiH = Math.floor(h * 0.72);
+      const roiX = Math.floor((w - roiW) / 2);
+      const roiY = Math.floor((h - roiH) / 2);
+      const img = ctx.getImageData(roiX, roiY, roiW, roiH).data;
+
+      let redSum = 0, greenSum = 0, brightnessSum = 0, count = 0, redDominant = 0;
+
+      for (let i = 0; i < img.length; i += 16) {
+        const r = img[i], g = img[i + 1], b = img[i + 2];
+        const brightness = (r + g + b) / 3;
+        if (brightness > 8 && brightness < 252) {
+          redSum += r;
+          greenSum += g;
+          brightnessSum += brightness;
+          count += 1;
+          if (r > g * 1.05 && r > b * 1.05) redDominant += 1;
+        }
+      }
+
+      const avgR = count ? redSum / count : 0;
+      const avgG = count ? greenSum / count : 0;
+      const avgBrightness = count ? brightnessSum / count : 0;
+      const redRatio = count ? redDominant / count : 0;
+
+      if (avgBrightness < 20) els.fingerSignal.textContent = '太暗：手指可能蓋太緊或環境太暗';
+      else if (avgBrightness > 235) els.fingerSignal.textContent = '過曝：手指可能沒完全蓋住鏡頭';
+      else if (redRatio < 0.2) els.fingerSignal.textContent = '訊號弱：請讓指腹完整貼住鏡頭';
+      else els.fingerSignal.textContent = '手指訊號 OK';
+
+      const rawSignal = avgR - 0.5 * avgG;
+      const cutoff = now - SAMPLE_WINDOW_SEC * 1000;
+      samples.push({ t: now, raw: rawSignal });
+      samples = samples.filter(p => p.t >= cutoff);
+      if (samples.length > MAX_POINTS) samples = samples.slice(samples.length - MAX_POINTS);
+      els.sampleCount.textContent = String(samples.length);
+    }
+
+    function drawWave() {
+      const data = detrendAndNormalize(samples);
+      const w = waveCanvas.width;
+      const h = waveCanvas.height;
+      waveCtx.clearRect(0, 0, w, h);
+
+      waveCtx.fillStyle = 'rgba(2, 6, 23, 0.8)';
+      waveCtx.fillRect(0, 0, w, h);
+
+      waveCtx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+      waveCtx.lineWidth = 1;
+      for (let i = 1; i < 6; i++) {
+        const y = (h / 6) * i;
+        waveCtx.beginPath();
+        waveCtx.moveTo(0, y);
+        waveCtx.lineTo(w, y);
+        waveCtx.stroke();
+      }
+
+      if (data.length < 2) return;
+
+      const ys = data.map(d => d.y);
+      const minY = Math.min(...ys, -2);
+      const maxY = Math.max(...ys, 2);
+      const span = maxY - minY || 1;
+
+      waveCtx.strokeStyle = '#67e8f9';
+      waveCtx.lineWidth = 3;
+      waveCtx.beginPath();
+      data.forEach((d, i) => {
+        const x = (i / Math.max(1, data.length - 1)) * w;
+        const y = h - ((d.y - minY) / span) * h;
+        if (i === 0) waveCtx.moveTo(x, y);
+        else waveCtx.lineTo(x, y);
+      });
+      waveCtx.stroke();
+    }
+
+    function updateMetrics() {
+      const m = estimateMetrics(samples);
+      els.bpm.textContent = fmt(m.bpm, 0);
+      els.sdnn.textContent = fmt(m.sdnn, 0);
+      els.rmssd.textContent = fmt(m.rmssd, 0);
+      els.cv.textContent = fmt(m.cv ? m.cv * 100 : null, 1);
+      els.confidence.textContent = fmt(m.confidence * 100, 0);
+
+      if (m.confidence > 0.7) els.confidenceLabel.textContent = '較穩定';
+      else if (m.confidence > 0.4) els.confidenceLabel.textContent = '累積中';
+      else els.confidenceLabel.textContent = '訊號不足';
+    }
+
+    els.startBtn.addEventListener('click', start);
+    els.stopBtn.addEventListener('click', stop);
+    els.permissionBtn.addEventListener('click', refreshPermissionState);
+
+    refreshPermissionState();
+    drawWave();
+  </script>
+</body>
+</html>
